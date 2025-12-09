@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chimps Memory Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .number-box {
+            transition: all 0.3s ease;
+        }
+        .number-box:hover {
+            transform: scale(1.05);
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full">
+        <h1 class="text-3xl font-bold text-center mb-2 text-gray-800">Chimps Memory Test</h1>
+        <p class="text-gray-600 text-center mb-6">Remember the sequence of numbers and click them in order</p>
+        
+        <div id="gameArea" class="mb-6">
+            <div id="startScreen" class="text-center">
+                <button id="startBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+                    Start Test
+                </button>
+                <div class="mt-4 text-gray-600">
+                    <p>Level: <span id="currentLevel" class="font-bold">1</span></p>
+                    <p>High Score: <span id="highScore" class="font-bold">1</span></p>
+                </div>
+            </div>
+            
+            <div id="gameScreen" class="hidden">
+                <div id="sequenceDisplay" class="grid grid-cols-9 gap-2 mb-6 min-h-[200px]">
+                    <!-- Numbers will appear here -->
+                </div>
+                
+                <div id="inputGrid" class="grid grid-cols-9 gap-2 mb-4">
+                    <!-- Input buttons will be generated here -->
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <div class="text-gray-600">
+                        <span>Level: </span><span id="levelDisplay" class="font-bold">1</span>
+                    </div>
+                    <div id="feedback" class="text-lg font-semibold"></div>
+                    <div class="text-gray-600">
+                        <span>High Score: </span><span id="scoreDisplay" class="font-bold">1</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="resultScreen" class="hidden text-center">
+                <h2 class="text-2xl font-bold mb-4" id="resultTitle"></h2>
+                <p class="text-lg mb-2" id="resultMessage"></p>
+                <p class="text-gray-600 mb-6">You reached level <span id="finalLevel" class="font-bold"></span></p>
+                <button id="restartBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+                    Try Again
+                </button>
+            </div>
+        </div>
+        
+        <div class="text-center text-sm text-gray-500">
+            <p>Click the numbers in the order they appeared</p>
+            <p>Each level adds one more number to remember</p>
+        </div>
+    </div>
+
+    <script>
+        class ChimpsGame {
+            constructor() {
+                this.level = 1;
+                this.highScore = parseInt(localStorage.getItem('chimpsHighScore') || '1');
+                this.sequence = [];
+                this.userSequence = [];
+                this.isPlaying = false;
+                this.showingSequence = false;
+                
+                this.initializeElements();
+                this.attachEventListeners();
+                this.updateDisplay();
+                this.createInputGrid();
+            }
+            
+            initializeElements() {
+                this.startScreen = document.getElementById('startScreen');
+                this.gameScreen = document.getElementById('gameScreen');
+                this.resultScreen = document.getElementById('resultScreen');
+                this.sequenceDisplay = document.getElementById('sequenceDisplay');
+                this.inputGrid = document.getElementById('inputGrid');
+                this.startBtn = document.getElementById('startBtn');
+                this.restartBtn = document.getElementById('restartBtn');
+                this.levelDisplay = document.getElementById('levelDisplay');
+                this.scoreDisplay = document.getElementById('scoreDisplay');
+                this.currentLevel = document.getElementById('currentLevel');
+                this.highScoreDisplay = document.getElementById('highScore');
+                this.feedback = document.getElementById('feedback');
+                this.resultTitle = document.getElementById('resultTitle');
+                this.resultMessage = document.getElementById('resultMessage');
+                this.finalLevel = document.getElementById('finalLevel');
+            }
+            
+            attachEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startGame());
+                this.restartBtn.addEventListener('click', () => this.resetGame());
+            }
+            
+            createInputGrid() {
+                this.inputGrid.innerHTML = '';
+                for (let i = 1; i <= 9; i++) {
+                    const button = document.createElement('button');
+                    button.className = 'number-box bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-4 px-4 rounded-lg transition-all';
+                    button.textContent = i;
+                    button.dataset.number = i;
+                    button.addEventListener('click', () => this.handleNumberClick(i));
+                    this.inputGrid.appendChild(button);
+                }
+            }
+            
+            startGame() {
+                this.level = 1;
+                this.isPlaying = true;
+                this.startScreen.classList.add('hidden');
+                this.gameScreen.classList.remove('hidden');
+                this.resultScreen.classList.add('hidden');
+                this.nextRound();
+            }
+            
+            nextRound() {
+                this.userSequence = [];
+                this.generateSequence();
+                this.showSequence();
+                this.updateDisplay();
+                this.resetInputButtons();
+                this.feedback.textContent = '';
+            }
+            
+            generateSequence() {
+                this.sequence = [];
+                for (let i = 0; i < this.level; i++) {
+                    this.sequence.push(Math.floor(Math.random() * 9) + 1);
+                }
+            }
+            
+            showSequence() {
+                this.showingSequence = true;
+                this.sequenceDisplay.innerHTML = '';
+                this.disableInputButtons();
+                
+                this.sequence.forEach((number, index) => {
+                    setTimeout(() => {
+                        const box = document.createElement('div');
+                        box.className = 'number-box bg-blue-500 text-white font-bold py-4 px-4 rounded-lg fade-in text-xl';
+                        box.textContent = number;
+                        this.sequenceDisplay.appendChild(box);
+                        
+                        if (index === this.sequence.length - 1) {
+                            setTimeout(() => {
+                                this.sequenceDisplay.innerHTML = '';
+                                this.showingSequence = false;
+                                this.enableInputButtons();
+                            }, 1000);
+                        }
+                    }, index * 1000);
+                });
+            }
+            
+            handleNumberClick(number) {
+                if (this.showingSequence || !this.isPlaying) return;
+                
+                this.userSequence.push(number);
+                this.disableButton(number);
+                
+                if (this.userSequence[this.userSequence.length - 1] !== this.sequence[this.userSequence.length - 1]) {
+                    this.gameOver();
+                    return;
+                }
+                
+                if (this.userSequence.length === this.sequence.length) {
+                    this.feedback.textContent = 'Correct!';
+                    this.feedback.className = 'text-lg font-semibold text-green-600';
+                    setTimeout(() => {
+                        this.level++;
+                        this.nextRound();
+                    }, 1000);
+                }
+            }
+            
+            disableButton(number) {
+                const button = this.inputGrid.querySelector(`[data-number="${number}"]`);
+                if (button) {
+                    button.disabled = true;
+                    button.className = 'number-box bg-gray-400 text-gray-600 font-bold py-4 px-4 rounded-lg cursor-not-allowed';
+                }
+            }
+            
+            resetInputButtons() {
+                const buttons = this.inputGrid.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.disabled = false;
+                    button.className = 'number-box bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-4 px-4 rounded-lg transition-all';
+                });
+            }
+            
+            disableInputButtons() {
+                const buttons = this.inputGrid.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.disabled = true;
+                    button.className = 'number-box bg-gray-400 text-gray-600 font-bold py-4 px-4 rounded-lg cursor-not-allowed';
+                });
+            }
+            
+            enableInputButtons() {
+                const buttons = this.inputGrid.querySelectorAll('button');
+                buttons.forEach(button => {
+                    button.disabled = false;
+                    button.className = 'number-box bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-4 px-4 rounded-lg transition-all';
+                });
+            }
+            
+            gameOver() {
+                this.isPlaying = false;
+                this.feedback.textContent = 'Wrong!';
+                this.feedback.className = 'text-lg font-semibold text-red-600';
+                
+                if (this.level > this.highScore) {
+                    this.highScore = this.level;
+                    localStorage.setItem('chimpsHighScore', this.highScore.toString());
+                }
+                
+                setTimeout(() => {
+                    this.showResult();
+                }, 1500);
+            }
+            
+            showResult() {
+                this.gameScreen.classList.add('hidden');
+                this.resultScreen.classList.remove('hidden');
+                
+                this.finalLevel.textContent = this.level;
+                
+                if (this.level <= 3) {
+                    this.resultTitle.textContent = 'Keep Practicing!';
+                    this.resultMessage.textContent = 'You can do better!';
+                    this.resultTitle.className = 'text-2xl font-bold mb-4 text-orange-600';
+                } else if (this.level <= 6) {
+                    this.resultTitle.textContent = 'Good Job!';
+                    this.resultMessage.textContent = 'You\'re getting the hang of it!';
+                    this.resultTitle.className = 'text-2xl font-bold mb-4 text-blue-600';
+                } else if (this.level <= 9) {
+                    this.resultTitle.textContent = 'Great Work!';
+                    this.resultMessage.textContent = 'You have excellent memory!';
+                    this.resultTitle.className = 'text-2xl font-bold mb-4 text-green-600';
+                } else {
+                    this.resultTitle.textContent = 'Amazing!';
+                    this.resultMessage.textContent = 'You have exceptional memory!';
+                    this.resultTitle.className = 'text-2xl font-bold mb-4 text-purple-600';
+                }
+            }
+            
+            resetGame() {
+                this.resultScreen.classList.add('hidden');
+                this.startScreen.classList.remove('hidden');
+                this.updateDisplay();
+            }
+            
+            updateDisplay() {
+                this.levelDisplay.textContent = this.level;
+                this.scoreDisplay.textContent = this.highScore;
+                this.currentLevel.textContent = this.level;
+                this.highScoreDisplay.textContent = this.highScore;
+            }
+        }
+        
+        // Initialize game when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new ChimpsGame();
+        });
+    </script>
+</body>
+</html>
