@@ -1,15 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
 import styles from '../styles/ReactionTimeTest.module.css';
+import { LanguageContext } from '../contexts/LanguageContext';
+import { translations } from '../translations';
 
 const MIN_DELAY = 2000;
 const MAX_DELAY = 5000;
 
-// Reaction time test closely mirroring humanbenchmark.com
 function ReactionTimeTest() {
   const [status, setStatus] = useState('intro'); // intro, waiting, ready, result, tooSoon
   const [reactionTime, setReactionTime] = useState(null);
   const timeoutRef = useRef(null);
   const startTimeRef = useRef(0);
+  const { language } = useContext(LanguageContext);
+  const t = translations[language];
 
   useEffect(() => {
     return () => {
@@ -43,7 +46,6 @@ function ReactionTimeTest() {
     }
 
     if (status === 'waiting') {
-      // Clicked too early
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -70,60 +72,49 @@ function ReactionTimeTest() {
   };
 
   const renderContent = () => {
-    if (status === 'intro') {
-      return (
-        <>
-          <h1 className={styles.title}>Reaction Time Test</h1>
-          <p className={styles.subtitle}>
-            When the red box turns green, click as quickly as you can.
-            <br />
-            Click anywhere to start.
-          </p>
-        </>
-      );
+    switch (status) {
+      case 'intro':
+        return (
+          <>
+            <h1 className={styles.title}>{t.reactionTimeTestTitle}</h1>
+            <p className={styles.subtitle}>{t.reactionTimeTestInstruction}</p>
+            <p className={styles.subtitle}>{t.clickToStart}</p>
+          </>
+        );
+      case 'waiting':
+        return (
+          <>
+            <div className={styles.ellipsis}>...</div>
+            <p className={styles.smallText}>{t.waitForGreen}</p>
+          </>
+        );
+      case 'ready':
+        return <div className={styles.clickText}>{t.click}</div>;
+      case 'tooSoon':
+        return (
+          <>
+            <h2 className={styles.title}>{t.tooSoon}</h2>
+            <p className={styles.subtitle}>{t.clickToTryAgain}</p>
+          </>
+        );
+      case 'result':
+        return (
+          <>
+            <div className={styles.resultTime}>{reactionTime} ms</div>
+            <p className={styles.subtitle}>{t.clickToKeepGoing}</p>
+          </>
+        );
+      default:
+        return null;
     }
-
-    if (status === 'waiting') {
-      return (
-        <>
-          <div className={styles.ellipsis}>...</div>
-          <p className={styles.smallText}>Wait for green</p>
-        </>
-      );
-    }
-
-    if (status === 'ready') {
-      return <div className={styles.clickText}>Click!</div>;
-    }
-
-    if (status === 'tooSoon') {
-      return (
-        <>
-          <div className={styles.resultIcon}>!</div>
-          <h2 className={styles.title}>Too soon!</h2>
-          <p className={styles.subtitle}>Click to try again.</p>
-        </>
-      );
-    }
-
-    // result
-    return (
-      <>
-        <div className={styles.resultIcon}>🕒</div>
-        <div className={styles.resultTime}>{reactionTime} ms</div>
-        <p className={styles.subtitle}>Click to keep going.</p>
-      </>
-    );
   };
 
   return (
-    <div className={styles.wrapper}>
-      <div
-        className={`${styles.panel} ${backgroundClass()}`}
-        onClick={handlePanelClick}
-      >
-        <div className={styles.content}>{renderContent()}</div>
-      </div>
+    <div 
+      className={`${styles.panel} ${backgroundClass()}`}
+      onClick={handlePanelClick}
+    >
+      {renderContent()}
     </div>
   );
 }

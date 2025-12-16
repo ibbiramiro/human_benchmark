@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import '../App.css';
+import React, { useEffect, useState, useContext } from 'react';
+import styles from '../styles/ChimpTest.module.css';
+import { LanguageContext } from '../contexts/LanguageContext';
+import { translations } from '../translations';
 
-// Chimp test: click the numbered squares in order; difficulty increases
+const GRID_SIZE = 9;
+
 function ChimpTest() {
   const [status, setStatus] = useState('intro'); // intro, playing, summary, gameover
-  const [cells, setCells] = useState([]); // 3x3 grid values
+  const [cells, setCells] = useState([]);
   const [nextExpected, setNextExpected] = useState(1);
   const [numbersCount, setNumbersCount] = useState(4);
   const [score, setScore] = useState(0);
@@ -13,6 +16,8 @@ function ChimpTest() {
     const stored = localStorage.getItem('chimpBestScore');
     return stored ? parseInt(stored, 10) : 0;
   });
+  const { language } = useContext(LanguageContext);
+  const t = translations[language];
 
   const shuffle = (array) => {
     const arr = [...array];
@@ -24,9 +29,9 @@ function ChimpTest() {
   };
 
   const createRound = (currentScore) => {
-    const count = Math.min(4 + currentScore, 9); // increase numbers as score rises
+    const count = Math.min(4 + currentScore, GRID_SIZE);
     const nums = Array.from({ length: count }, (_, i) => i + 1);
-    const baseCells = Array(9).fill(null);
+    const baseCells = Array(GRID_SIZE).fill(null);
     nums.forEach((n, index) => {
       baseCells[index] = n;
     });
@@ -52,9 +57,7 @@ function ChimpTest() {
 
       if (nextExpected === numbersCount) {
         setScore((prev) => prev + 1);
-        setTimeout(() => {
-          setStatus('summary');
-        }, 300);
+        setTimeout(() => setStatus('summary'), 300);
       } else {
         setNextExpected((prev) => prev + 1);
       }
@@ -62,13 +65,9 @@ function ChimpTest() {
       const newStrikes = strikes + 1;
       setStrikes(newStrikes);
       if (newStrikes >= 3) {
-        setTimeout(() => {
-          finishGame();
-        }, 300);
+        setTimeout(() => finishGame(), 300);
       } else {
-        setTimeout(() => {
-          setStatus('summary');
-        }, 300);
+        setTimeout(() => setStatus('summary'), 300);
       }
     }
   };
@@ -92,98 +91,84 @@ function ChimpTest() {
   };
 
   useEffect(() => {
-    // Ensure grid is initialised when returning to this test
     if (status === 'playing' && cells.length === 0) {
       createRound(score);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, cells.length, score]);
 
-  return (
-    <div className="game-screen">
-      {status === 'intro' && (
-        <div className="start-screen">
-          <div className="icon-container">
-            <div className="grid-icon">
-              <div className="grid-square" />
-              <div className="grid-square" />
-              <div className="grid-square" />
-              <div className="grid-square outlined" />
-            </div>
-          </div>
-          <h1 className="title">Are You Smarter Than a Chimpanzee?</h1>
-          <p className="description">
-            Click the squares in order according to their numbers. The test will
-            get progressively harder.
-          </p>
-          <button type="button" className="start-btn" onClick={startTest}>
-            START TEST
-          </button>
-          <div className="high-score">
-            Best score: {bestScore}
-          </div>
-        </div>
-      )}
-
-      {status === 'playing' && (
-        <>
-          <div className="level-indicator">Score: {score} &bull; Strikes: {strikes} / 3</div>
-          <div className="game-grid">
-            {cells.map((value, index) => (
-              <button
-                type="button"
-                key={index}
-                className={`grid-cell ${value === null ? 'clicked' : ''}`}
-                onClick={() => handleCellClick(value, index)}
-                disabled={value === null}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
-      {status === 'summary' && (
-        <div className="gameover-screen">
-          <h2 className="gameover-title">Numbers {numbersCount}</h2>
-          <p className="gameover-message">
-            Strikes {strikes} of 3
-          </p>
-          <button
-            type="button"
-            className="restart-btn"
-            onClick={handleContinue}
-          >
-            Continue
-          </button>
-        </div>
-      )}
-
-      {status === 'gameover' && (
-        <div className="gameover-screen">
-          <div className="icon-container">
-            <div className="grid-icon">
-              <div className="grid-square" />
-              <div className="grid-square" />
-              <div className="grid-square" />
-              <div className="grid-square outlined" />
-            </div>
-          </div>
-          <h2 className="gameover-title">Score</h2>
-          <p className="gameover-message">{score}</p>
-          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-            <button type="button" className="restart-btn" disabled>
-              Save score
-            </button>
-            <button type="button" className="restart-btn" onClick={startTest}>
-              Try again
-            </button>
-          </div>
-        </div>
-      )}
+  const renderIntro = () => (
+    <div className={styles.screen}>
+      <h1 className={styles.title}>{t.chimpTestTitle}</h1>
+      <p className={styles.description}>{t.chimpTestInstruction}</p>
+      <button type="button" className={styles.button} onClick={startTest}>
+        {t.startTest}
+      </button>
+      <p className={styles.bestScore}>{t.bestScore}: {bestScore}</p>
     </div>
   );
+
+  const renderPlaying = () => (
+    <div className={styles.gameContainer}>
+      <div className={styles.statusBar}>
+        {t.score}: {score} &bull; {t.strikes}: {strikes} / 3
+      </div>
+      <div className={styles.grid}>
+        {cells.map((value, index) => (
+          <button
+            type="button"
+            key={index}
+            className={`${styles.cell} ${value === null ? styles.clicked : ''}`}
+            onClick={() => handleCellClick(value, index)}
+            disabled={value === null}
+          >
+            {value}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderSummary = () => (
+    <div className={styles.screen}>
+      <h2 className={styles.title}>{t.numbersLevel.replace('{numbersCount}', numbersCount)}</h2>
+      <p className={styles.description}>{t.strikes} {strikes} of 3</p>
+      <button type="button" className={styles.button} onClick={handleContinue}>
+        {t.continue}
+      </button>
+    </div>
+  );
+
+  const renderGameOver = () => (
+    <div className={styles.screen}>
+      <h2 className={styles.title}>{t.score}</h2>
+      <p className={styles.finalScore}>{score}</p>
+      <div className={styles.buttonGroup}>
+        <button type="button" className={styles.button} disabled>
+          {t.saveScore}
+        </button>
+        <button type="button" className={styles.button} onClick={startTest}>
+          {t.tryAgain}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderContent = () => {
+    switch (status) {
+      case 'intro':
+        return renderIntro();
+      case 'playing':
+        return renderPlaying();
+      case 'summary':
+        return renderSummary();
+      case 'gameover':
+        return renderGameOver();
+      default:
+        return null;
+    }
+  };
+
+  return <div className={styles.container}>{renderContent()}</div>;
 }
 
 export default ChimpTest;
